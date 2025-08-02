@@ -44,7 +44,7 @@ def expandir_operadores(expr):
             if prev == ')':
                 resultado += '|ε'
             else:
-                resultado += '|' + 'ε'
+                resultado += '|ε'
             i += 1
         else:
             resultado += expr[i]
@@ -81,7 +81,7 @@ def shunting_yard(regex):
             if pila:
                 pila.pop()
             else:
-                raise ValueError("Paréntesis desbalanceado")
+                raise ValueError("Falta parentesis de apertura '('")
             i += 1
         elif c in operadores:
             while (pila and pila[-1] in operadores and
@@ -90,32 +90,41 @@ def shunting_yard(regex):
             pila.append(c)
             i += 1
         else:
-            raise ValueError(f"Carácter no reconocido: {c}")
+            raise ValueError(f"Carácter no reconocido en la expresión: '{c}'")
 
     while pila:
         top = pila.pop()
         if top in {'(', ')'}:
-            raise ValueError("Paréntesis desbalanceado")
+            raise ValueError("Parentesis desbalanceados.")
         salida.append(top)
 
     return salida
 
 def procesar_archivo(nombre_archivo):
+    print(f"Abriendo archivo: {nombre_archivo}")
     with open(nombre_archivo, 'r') as archivo:
         lineas = archivo.readlines()
 
     for i, linea in enumerate(lineas):
         original = linea.strip()
         if not original:
+            print(f"Línea vacía #{i+1}, se omite.")
             continue
 
-        print(f"\nExpresión original [{i+1}]: {original}")
+        print(f"\nProcesando expresión [{i+1}]: {original}")
         try:
             con_concat = insertar_concatenaciones(original)
-            expandida = expandir_operadores(con_concat)
-            postfijo = shunting_yard(expandida)
-            print("Postfijo:", ' '.join(postfijo))
-        except Exception as e:
-            print("❌ Error en la expresión:", e)
+            print(f"Con concatenaciones explícitas: {con_concat}")
 
+            expandida = expandir_operadores(con_concat)
+            print(f"Después de expandir operadores: {expandida}")
+
+            postfijo = shunting_yard(expandida)
+            print(f"Expresión en postfijo: {' '.join(postfijo)}")
+        except Exception as e:
+            print(f"Error al procesar la expresión #{i+1}: {e}")
+
+    print("\n¡Procesamiento finalizado!")
+
+# Ejecutar el procesamiento del archivo
 procesar_archivo("problema3/input.txt")

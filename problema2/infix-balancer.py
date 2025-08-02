@@ -33,5 +33,5 @@ def procesador_archivo(file_path):
 
 
 # Archivo de prueba
-file_path = 'expresiones.txt'
+file_path = 'problema2/expresiones.txt'
 procesador_archivo(file_path)

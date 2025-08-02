@@ -1,10 +1,29 @@
-import re
+def expandir_clases(expr):
+    resultado = ''
+    i = 0
+    while i < len(expr):
+        if expr[i] == '\\':
+            if i + 1 < len(expr):
+                resultado += expr[i:i+2]
+                i += 2
+        elif expr[i] == '[':
+            i += 1
+            contenido = ''
+            while i < len(expr) and expr[i] != ']':
+                contenido += expr[i]
+                i += 1
+            if i < len(expr) and contenido:
+                resultado += '(' + '|'.join(contenido) + ')'
+                i += 1
+            else:
+                raise ValueError("Clase de caracteres sin cerrar o vacía")
+        else:
+            resultado += expr[i]
+            i += 1
+    return resultado
 
 def insertar_concatenaciones(expr):
     resultado = ''
-    caracteres_binarios = {'*', '+', '?', ')'}
-    caracteres_izquierda = {'(', '|'}
-    
     i = 0
     while i < len(expr):
         c1 = expr[i]
@@ -16,7 +35,7 @@ def insertar_concatenaciones(expr):
                 resultado += expr[i]
         elif i + 1 < len(expr):
             c2 = expr[i + 1]
-            if ((c1 not in caracteres_izquierda and c2 not in {'*', '+', '?', '|', ')'})
+            if ((c1 not in {'(', '|'} and c2 not in {'*', '+', '?', '|', ')'})
                 or (c1 in {'*', '+', '?'} and c2 not in {'*', '+', '?', '|', ')'})
                 or (c1 == ')' and c2 == '(')
                 or (c1 == ')' and c2.isalnum())
@@ -30,18 +49,31 @@ def expandir_operadores(expr):
     resultado = ''
     while i < len(expr):
         if expr[i] == '\\':
-            resultado += expr[i:i+2]
-            i += 2
-        elif expr[i] == '+':
-            prev = resultado.rstrip('.')[-1]
-            if prev == ')':
-                resultado += '.A*'
+            if i + 1 < len(expr):
+                resultado += expr[i:i+2]
+                i += 2
             else:
+                raise ValueError("Escape incompleto")
+        elif expr[i] == '+':
+            if resultado and resultado[-1] == ')':
+                count = 0
+                j = len(resultado) - 1
+                while j >= 0:
+                    if resultado[j] == ')':
+                        count += 1
+                    elif resultado[j] == '(':
+                        count -= 1
+                        if count == 0:
+                            break
+                    j -= 1
+                grupo = resultado[j:]
+                resultado += '.' + grupo + '*'
+            else:
+                prev = resultado.rstrip('.')[-1]
                 resultado += '.' + prev + '*'
             i += 1
         elif expr[i] == '?':
-            prev = resultado.rstrip('.')[-1]
-            if prev == ')':
+            if resultado and resultado[-1] == ')':
                 resultado += '|ε'
             else:
                 resultado += '|ε'
@@ -66,10 +98,18 @@ def shunting_yard(regex):
 
     while i < len(regex):
         c = regex[i]
+
+        if c == ' ':
+            i += 1
+            continue
+
         if c == '\\':
-            salida.append('\\' + regex[i+1])
-            i += 2
-        elif c.isalnum() or c == 'ε':
+            if i + 1 < len(regex):
+                salida.append('\\' + regex[i + 1])
+                i += 2
+            else:
+                raise ValueError("Secuencia de escape incompleta")
+        elif c.isalnum() or c in {'ε', '@', '.', '{', '}'}:
             salida.append(c)
             i += 1
         elif c == '(':
@@ -80,9 +120,9 @@ def shunting_yard(regex):
                 salida.append(pila.pop())
             if pila:
                 pila.pop()
+                i += 1
             else:
-                raise ValueError("Falta parentesis de apertura '('")
-            i += 1
+                raise ValueError("Falta paréntesis de apertura")
         elif c in operadores:
             while (pila and pila[-1] in operadores and
                    precedencia[c] <= precedencia[pila[-1]]):
@@ -90,18 +130,18 @@ def shunting_yard(regex):
             pila.append(c)
             i += 1
         else:
-            raise ValueError(f"Carácter no reconocido en la expresión: '{c}'")
+            raise ValueError(f"Carácter no reconocido: '{c}'")
 
     while pila:
         top = pila.pop()
         if top in {'(', ')'}:
-            raise ValueError("Parentesis desbalanceados.")
+            raise ValueError("Paréntesis desbalanceados.")
         salida.append(top)
 
     return salida
 
 def procesar_archivo(nombre_archivo):
-    print(f"Abriendo archivo: {nombre_archivo}")
+    print(f"📂 Abriendo archivo: {nombre_archivo}")
     with open(nombre_archivo, 'r') as archivo:
         lineas = archivo.readlines()
 
@@ -113,18 +153,21 @@ def procesar_archivo(nombre_archivo):
 
         print(f"\nProcesando expresión [{i+1}]: {original}")
         try:
-            con_concat = insertar_concatenaciones(original)
+            clase_expandida = expandir_clases(original)
+            print(f"Expandida clase de caracteres: {clase_expandida}")
+
+            con_concat = insertar_concatenaciones(clase_expandida)
             print(f"Con concatenaciones explícitas: {con_concat}")
 
             expandida = expandir_operadores(con_concat)
             print(f"Después de expandir operadores: {expandida}")
 
             postfijo = shunting_yard(expandida)
-            print(f"Expresión en postfijo: {' '.join(postfijo)}")
+            print(f"✅ Expresión en postfijo: {' '.join(postfijo)}")
         except Exception as e:
-            print(f"Error al procesar la expresión #{i+1}: {e}")
+            print(f"❌ Error al procesar la expresión #{i+1}: {e}")
 
-    print("\n¡Procesamiento finalizado!")
+    print("\n🎉 ¡Procesamiento finalizado!")
 
 # Ejecutar el procesamiento del archivo
 procesar_archivo("problema3/input.txt")
